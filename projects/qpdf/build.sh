@@ -15,16 +15,32 @@
 #
 ################################################################################
 
-# libz
+# Build zlib with proper compiler flags for sanitizer support
 pushd $SRC/zlib
-./configure --static --prefix="$WORK"
+# Clean any previous build
+make distclean || true
+# Configure with the sanitizer-aware compiler and flags
+CFLAGS="$CFLAGS" CC="$CC" ./configure --static --prefix="$WORK"
 make -j$(nproc) all
 make install
 popd
 
-# libjpeg-turbo
+# Build libjpeg-turbo with proper compiler flags for sanitizer support
 pushd $SRC/libjpeg-turbo
-cmake . -DCMAKE_INSTALL_PREFIX="$WORK" -DENABLE_STATIC=1 -DENABLE_SHARED=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1
+# Clean any previous build
+rm -rf CMakeCache.txt CMakeFiles || true
+# For MSan, we need to disable SIMD as it contains uninstrumented assembly
+# Also pass all compiler flags for proper instrumentation
+cmake . \
+    -DCMAKE_C_COMPILER="$CC" \
+    -DCMAKE_CXX_COMPILER="$CXX" \
+    -DCMAKE_C_FLAGS="$CFLAGS" \
+    -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+    -DCMAKE_INSTALL_PREFIX="$WORK" \
+    -DENABLE_STATIC=1 \
+    -DENABLE_SHARED=0 \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=1 \
+    -DWITH_SIMD=0
 make -j$(nproc)
 make install
 popd
